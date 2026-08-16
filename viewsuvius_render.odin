@@ -3,6 +3,7 @@ package main
 import rl "vendor:raylib"
 import "core:strings"
 import "core:fmt"
+import "core:math/rand"
 
 SCALE :: 5
 WIDTH :: 128 * SCALE
@@ -17,14 +18,20 @@ vs_init :: proc(){
     rl.SetTargetFPS(25)
 
     rl.InitWindow(WIDTH, HEIGHT + PADDING, "Viewsuvius")
+
+    colour_map[0] = u32(0)
+    colour_map[255] = 0xFFFFFFFF
+    for idx in 1..<255{
+        colour_map[idx] = rand.uint32()
+    }
 }
 
 vs_deinit :: proc(){
     rl.CloseWindow()
 }
 
-vs_render_image :: proc(i: VSImage, depth: int, cube_idx: int, is_raw: bool){
-    s := fmt.tprintf("Depth: %v | Cube: %v | ViewType: %v", depth, cube_idx, is_raw ? "RAW" : "PRED")
+vs_render_image :: proc(i: VSImage, depth: int, cube_idx: int, tag: string){
+    s := fmt.tprintf("Depth: %v | Cube: %v | ViewType: %v", depth, cube_idx, tag)
     text := strings.clone_to_cstring(s)
     defer delete(text)
 

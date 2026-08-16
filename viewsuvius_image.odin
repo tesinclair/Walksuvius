@@ -8,14 +8,31 @@ VSImage :: struct{
     texture: rl.Texture,
 }
 
+@(private="file")
+image: [128*128]u32
+
+colour_map: [256]u32
+
 // Uses the data inside s, so s MUST be alive for as long as VSIMage is
-vs_image_from_raw_slice2d :: proc(s: Slice2D) -> VSImage{
+vs_image_from_raw_slice2d :: proc(s: Slice2D, coloured := false) -> VSImage{
     i := VSImage{}
     
-    i.raw_img.data = rawptr(s.data)
     i.raw_img.width, i.raw_img.height = 128, 128
-    i.raw_img.format = .UNCOMPRESSED_GRAYSCALE
     i.raw_img.mipmaps = 1
+
+    if coloured{
+        i.raw_img.format = .UNCOMPRESSED_R8G8B8A8
+
+        idx := 0
+        for pixel in s.data{
+            image[idx] = colour_map[pixel]
+            idx += 1
+        }
+        i.raw_img.data = rawptr(&image)
+    }else{
+        i.raw_img.format = .UNCOMPRESSED_GRAYSCALE
+        i.raw_img.data = rawptr(s.data)
+    }
 
     i.texture = rl.LoadTextureFromImage(i.raw_img)
 
