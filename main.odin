@@ -19,10 +19,9 @@ ViewData :: struct{
     tags: []string,
 }
 
-WALK_OPTS :: [?]string{"-log-blobbed", "-log-thinned", "-verbose"}
+WALK_OPTS :: [?]string{"-log", "-verbose"}
 WalkFlags :: enum{
-    LogBlobbed,
-    LogThinned,
+    Log,
     Verbose,
 }
 
@@ -97,32 +96,42 @@ main_walk :: proc(flags: bit_set[WalkFlags], tags, dirs: []string){
             if .Verbose in flags do fmt.printfln("Blobbing Cube: %v, Slice: %v", cube_idx + 1, depth)
            
             s := slice2d_create(t, depth)
-            defer slice2d_destroy(&s)
+            defer {
+                if .Verbose in flags do fmt.println("Destroying Slice2D: ", util_string(s))
+                slice2d_destroy(&s)
+            }
             
-            b := blob_blobify(&s) 
-            defer blob_unblobify(&b)
 
             skel := skeleton_create(s)
-            defer skeleton_destroy(&skel)
-
-            if .LogThinned in flags{
-                slice2d_destroy(&s)
-                s = slice2d_create(skel.data^, s.depth) // shouldn't really do this cos s technically isn't real, but depth is still valid
-                slice2d_map_pixels(&s, proc(p: Pixel) -> Pixel{ return p * 255 })
+            defer {
+                if .Verbose in flags do fmt.println("Destroying Skeleton: ", util_string(skel))
+                skeleton_destroy(&skel)
             }
 
-            tiff_replace_with_slice(&t, s) // The slice is written to, and replaced in the cube
+            skel_slice := slice2d_create(skel.data^, s.depth, s.position)
+            defer {
+                if .Verbose in flags do fmt.println("Destroying Slice: ", util_string(skel_slice))
+                slice2d_destroy(&skel_slice)
+            }
+            slice2d_map_pixels(&skel_slice, proc(p: Pixel) -> Pixel{ return p * 255 })
+
+            b := blob_blobify(&skel_slice)
+            defer {
+                if .Verbose in flags do fmt.println("Unblobifying BlobPack: ", util_string(b))
+                blob_unblobify(&b)
+            }
+
+            blob_find_crossings(&b, &skel_slice)
+
+            if .Log in flags do slice2d_colour(&skel_slice, b)
+            tiff_replace_with_slice(&t, skel_slice)
 
             if .Verbose in flags do fmt.printfln("Got blobs: %v", b.blobs)
         }
 
-        if .LogBlobbed in flags {
-            fmt.printfln("Writing cube %v to %v%v", cube_idx, "out/log/cubes_BLOBBED/", t.filename)
-            tiff_write(t, "out/log/cubes_BLOBBED/")
-        }
-        if .LogThinned in flags{
-            fmt.printfln("Writing cube %v to %v%v", cube_idx, "out/log/cubes_THINNED/", t.filename)
-            tiff_write(t, "out/log/cubes_THINNED/")
+        if .Log in flags{
+            fmt.printfln("Writing cube %v to %v%v", cube_idx + 1, "out/log/cubes_TAGGED/", t.filename)
+            tiff_write(t, "out/log/cubes_TAGGED/")
         }
     }
 }
@@ -196,7 +205,7 @@ Usage: %v [ Command ] -- [ Options ]
 
     Options:
         walk:
-            -logpartial                outputs partially tagged cubes to out/log/cubes_TAGGED/
+            -log                        outputs tagged cubes to out/log/cubes_TAGGED/, according to the colour scheme in tagging.md
             -verbose                    prints verbose output
 
 

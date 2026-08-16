@@ -25,7 +25,11 @@ vs_image_from_raw_slice2d :: proc(s: Slice2D, coloured := false) -> VSImage{
 
         idx := 0
         for pixel in s.data{
-            image[idx] = colour_map[pixel]
+            if pixel == 255 do image[idx] = 0xFFFFFFFF
+            else{
+                image[idx] = COLOUR_MAP[BlobTag(pixel)]
+            } 
+
             idx += 1
         }
         i.raw_img.data = rawptr(&image)

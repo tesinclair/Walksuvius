@@ -5,7 +5,7 @@ import "core:strings"
 import "core:fmt"
 import "core:math/rand"
 
-SCALE :: 5
+SCALE :: 10
 WIDTH :: 128 * SCALE
 HEIGHT :: 128 * SCALE
 PADDING :: 32

@@ -35,14 +35,14 @@ slice2d_create_tiff :: proc(t: TiffFile, depth: int) -> Slice2D{
     return s
 }
 
-slice2d_create_raw :: proc(data: raw_slice, depth: int) -> Slice2D{
+slice2d_create_raw :: proc(data: raw_slice, depth: int, position: Vec3 = {-1, -1, -1}) -> Slice2D{
     data := data
     s := Slice2D{}
 
     s.data = new(raw_slice)
     intrinsics.mem_copy(rawptr(s.data), rawptr(&data), SLICE_SIZE)
 
-    s.position = Vec3{-1, -1, -1}
+    s.position = position
 
     s.depth = depth
     return s
@@ -83,9 +83,18 @@ slice2d_get_pixel :: proc{
     slice2d_get_pixel_slice
 }
 
-slice2d_set_pixel :: proc(s: ^Slice2D, p: Vec2, v: u8){
+slice2d_set_pixel_slice :: proc(s: ^Slice2D, p: Vec2, v: u8){
     offset := p.x + (p.y * SLICE_HEIGHT)
     s.data[offset] = v
+}
+slice2d_set_pixel_raw :: proc(s: ^raw_slice, p: Vec2, v: u8){
+    offset := p.x + (p.y * SLICE_HEIGHT)
+    s[offset] = v
+}
+
+slice2d_set_pixel :: proc{
+    slice2d_set_pixel_raw,
+    slice2d_set_pixel_slice
 }
 
 slice2d_map_pixels :: proc(s: ^Slice2D, m: proc(p: Pixel) -> Pixel){
@@ -93,6 +102,18 @@ slice2d_map_pixels :: proc(s: ^Slice2D, m: proc(p: Pixel) -> Pixel){
         for y in 0..<SLICE_HEIGHT{
             idx := x + y * SLICE_HEIGHT
             s.data[idx] = u8(slice2d_get_pixel(s^, {x, y}, m))
+        }
+    }
+}
+
+// Colours a slice according to the colour key in tagging.md based on the blobs tags
+slice2d_colour :: proc(s: ^Slice2D, b: BlobPack){
+    for blob in b.blobs{
+        for p in blob.items{
+            slice2d_set_pixel(s, p, u8(blob.tag))
+        }
+        for p in blob.targets{
+            slice2d_set_pixel(s, p, u8(BlobTag.TargetPixel))
         }
     }
 }
@@ -142,4 +163,28 @@ slice2d_get_neighbours_raw :: proc(
     neighbours[7] = m(slice2d_get_pixel(s, {p.x-1, p.y}))
 
     return neighbours
+}
+
+// n is the neighbour, 1-8
+slice2d_get_neighbour_as_point :: proc(p: Vec2, n: int) -> Vec2{
+    switch n{
+    case 1:
+        return {p.x-1, p.y-1}
+    case 2:
+        return {p.x, p.y - 1}
+    case 3:
+        return {p.x+1, p.y-1}
+    case 4:
+        return {p.x+1, p.y}
+    case 5:
+        return {p.x+1, p.y+1}
+    case 6:
+        return {p.x, p.y + 1}
+    case 7:
+        return {p.x - 1, p.y + 1}
+    case 8:
+        return {p.x - 1, p.y}
+    case:
+        return {-1, -1}
+    }
 }
