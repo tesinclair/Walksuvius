@@ -15,7 +15,7 @@ CubePack :: map[string]^CubePackArr
 cube_walker_walk :: proc(tags: []string, dirs: []string) -> CubePack{
     cp := make(CubePack)
 
-    fi, err := os.read_directory_by_path(dirs[0], 64, context.allocator)
+    fi, err := os.read_directory_by_path(dirs[0], CUBE_COUNT, context.allocator)
     if err != nil{
         fmt.panicf("Failed to walk dir: %v. Err: %v", dirs[0], err)
     }

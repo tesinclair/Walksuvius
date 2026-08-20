@@ -2,4 +2,6 @@ bin/
 lib/
 roadmap.md
 out/
-
+runs
+gt_cache
+scripts

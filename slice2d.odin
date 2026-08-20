@@ -85,10 +85,12 @@ slice2d_get_pixel :: proc{
 
 slice2d_set_pixel_slice :: proc(s: ^Slice2D, p: Vec2, v: u8){
     offset := p.x + (p.y * SLICE_HEIGHT)
+    if offset >= SLICE_SIZE || offset < 0{return} // silently return
     s.data[offset] = v
 }
 slice2d_set_pixel_raw :: proc(s: ^raw_slice, p: Vec2, v: u8){
     offset := p.x + (p.y * SLICE_HEIGHT)
+    if offset >= SLICE_SIZE || offset < 0{return} // silently return
     s[offset] = v
 }
 
@@ -107,13 +109,40 @@ slice2d_map_pixels :: proc(s: ^Slice2D, m: proc(p: Pixel) -> Pixel){
 }
 
 // Colours a slice according to the colour key in tagging.md based on the blobs tags
-slice2d_colour :: proc(s: ^Slice2D, b: BlobPack){
+slice2d_colour :: proc(s: ^Slice2D, b: BlobPack, skel: Slice2D){
     for blob in b.blobs{
-        for p in blob.items{
+        for p in blob.items_small{
             slice2d_set_pixel(s, p, u8(blob.tag))
+
+        }
+
+    }
+
+    for x in 0..<SLICE_HEIGHT{
+        for y in 0..<SLICE_HEIGHT{
+            if slice2d_get_pixel(skel, {x, y}) != 255 do continue
+            slice2d_set_pixel(s, {x, y}, u8(BlobTag.Skeleton))
+        }
+    }
+
+    for blob in b.blobs{
+        for d in blob.deleted{
+            for p in d{
+                slice2d_set_pixel(s, p, u8(BlobTag.TargetClump))
+            }
         }
         for p in blob.targets{
             slice2d_set_pixel(s, p, u8(BlobTag.TargetPixel))
+        }
+    }
+}
+
+slice2d_delete :: proc(s: ^Slice2D, b: BlobPack){
+    for blob in b.blobs{
+        for d in blob.deleted{
+            for p in d{
+                slice2d_set_pixel(s, p, 0)
+            }
         }
     }
 }

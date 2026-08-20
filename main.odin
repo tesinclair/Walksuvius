@@ -5,7 +5,7 @@ import "core:os"
 import "core:strings"
 import rl "vendor:raylib"
 
-Vec2 :: struct{x, y: int}
+Vec2 :: [2]int
 Vec3 :: struct{x,y,z: int}
 
 ViewData :: struct{
@@ -65,6 +65,7 @@ main :: proc(){
 
         flags: bit_set[WalkFlags]
 
+        if opt_idx < len(os.args){}
         for flag in os.args[opt_idx:]{
             prev := flags
             for opt, idx in WALK_OPTS{
@@ -94,37 +95,40 @@ main_walk :: proc(flags: bit_set[WalkFlags], tags, dirs: []string){
 
         for depth in 0..<128{
             if .Verbose in flags do fmt.printfln("Blobbing Cube: %v, Slice: %v", cube_idx + 1, depth)
-           
+
             s := slice2d_create(t, depth)
             defer {
-                if .Verbose in flags do fmt.println("Destroying Slice2D: ", util_string(s))
                 slice2d_destroy(&s)
             }
-            
 
             skel := skeleton_create(s)
             defer {
-                if .Verbose in flags do fmt.println("Destroying Skeleton: ", util_string(skel))
                 skeleton_destroy(&skel)
             }
 
             skel_slice := slice2d_create(skel.data^, s.depth, s.position)
             defer {
-                if .Verbose in flags do fmt.println("Destroying Slice: ", util_string(skel_slice))
                 slice2d_destroy(&skel_slice)
             }
             slice2d_map_pixels(&skel_slice, proc(p: Pixel) -> Pixel{ return p * 255 })
 
-            b := blob_blobify(&skel_slice)
+            b := blob_blobify(&skel_slice, s)
             defer {
-                if .Verbose in flags do fmt.println("Unblobifying BlobPack: ", util_string(b))
                 blob_unblobify(&b)
             }
 
             blob_find_crossings(&b, &skel_slice)
+            blob_find_shortest(&b, &skel_slice, &s)
 
-            if .Log in flags do slice2d_colour(&skel_slice, b)
-            tiff_replace_with_slice(&t, skel_slice)
+            if .Verbose in flags{
+                for blob in b.blobs{
+                    fmt.println("Found target blobs: ", blob.deleted[:])
+                }
+            }
+
+            if .Log in flags do slice2d_colour(&s, b, skel_slice)
+            else do slice2d_delete(&s, b)
+            tiff_replace_with_slice(&t, s)
 
             if .Verbose in flags do fmt.printfln("Got blobs: %v", b.blobs)
         }
@@ -132,6 +136,9 @@ main_walk :: proc(flags: bit_set[WalkFlags], tags, dirs: []string){
         if .Log in flags{
             fmt.printfln("Writing cube %v to %v%v", cube_idx + 1, "out/log/cubes_TAGGED/", t.filename)
             tiff_write(t, "out/log/cubes_TAGGED/")
+        }else{
+            fmt.printfln("Writing cut cube %v to %v%v", cube_idx + 1, "out/cubes_CUT", t.filename)
+            tiff_write(t, "out/cubes_CUT/")
         }
     }
 }

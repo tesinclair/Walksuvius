@@ -69,7 +69,7 @@ tiff_get_pos :: proc(filepath: string) -> (Vec3, string){
     name := strings.split(raw_name, ".")[0]
     raw := strings.split(name, "_")
 
-    assert(len(raw) == 3, fmt.tprintf("Must have 3 coordinates in name. Got: %v", raw))
+    assert(len(raw) == 3, fmt.tprintf("Must have 3 coordinates in name. Got: %v, from file: %v", raw, filepath))
 
     z_s, y_s, x_s := raw[0], raw[1], raw[2]
     p.x, _ = strconv.parse_int(x_s)
