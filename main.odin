@@ -25,6 +25,10 @@ WalkFlags :: enum{
     Verbose,
 }
 
+Error :: union #shared_nil{
+    TiffError,
+}
+
 main :: proc(){
     if len(os.args) < 3 do print_usage()
 
@@ -91,6 +95,8 @@ main_walk :: proc(flags: bit_set[WalkFlags], tags, dirs: []string){
     for cube, cube_idx in cp["PRED"]{
         if .Verbose in flags do fmt.printfln("Walking Cube: %v", cube_idx + 1)
         t := tiff_read(cube)
+        if !t.ok do continue
+
         defer tiff_destroy(&t)
 
         for depth in 0..<128{
@@ -171,8 +177,12 @@ main_view :: proc(tags: []string, dirs: []string){
 
         if input == .UP do data.current_depth = max(data.current_depth - 1, 0)
         if input == .DOWN do data.current_depth = min(data.current_depth + 1, 127)
-        if input == .LEFT do data.current_cube = max(data.current_cube - 1, 0)
-        if input == .RIGHT do data.current_cube = min(data.current_cube + 1, CUBE_COUNT - 1)
+        if input == .LEFT{
+            data.current_cube = max(data.current_cube - 1, 0)
+        }
+        if input == .RIGHT{
+            data.current_cube = min(data.current_cube + 1, len(data.cube_paths[data.tags[data.tag_idx]]^)- 1)
+        }
         if input == .SPACE{
             data.tag_idx += 1
             data.tag_idx %= len(data.tags)

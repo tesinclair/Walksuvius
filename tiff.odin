@@ -13,6 +13,7 @@ FILE_SIZE :: 128 * 128 * 128
 TiffData :: [FILE_SIZE]byte
 
 TiffFile :: struct{
+    ok: bool,
     data: ^TiffData,
     position: Vec3,
     filename: string,
@@ -20,10 +21,19 @@ TiffFile :: struct{
     footer_data: []byte,
 }
 
+TiffError :: enum{
+    None,
+    BadFilename,
+}
+
 tiff_read :: proc(filepath: string) -> TiffFile{
     t := TiffFile{}
+    name_err: TiffError
 
-    t.position, t.filename = tiff_get_pos(filepath)
+    t.position, t.filename, name_err = tiff_get_pos(filepath)
+    if name_err == .BadFilename{
+        return t
+    }
 
     f, err := os.open(filepath)
     if err != nil{
@@ -51,6 +61,8 @@ tiff_read :: proc(filepath: string) -> TiffFile{
         fmt.panicf("Failed to read from file: %v. n: %v, Err: %v", filepath, n, errr)
     }
 
+    t.ok = true
+
     return t
 }
 
@@ -61,7 +73,7 @@ tiff_destroy :: proc(t: ^TiffFile){
 }
 
 // Takes a Tiff Cube File Path and returns its coordinates and the filename
-tiff_get_pos :: proc(filepath: string) -> (Vec3, string){
+tiff_get_pos :: proc(filepath: string) -> (Vec3, string, TiffError){
     p := Vec3{}
 
     split_fp := strings.split(filepath, "/")
@@ -69,14 +81,16 @@ tiff_get_pos :: proc(filepath: string) -> (Vec3, string){
     name := strings.split(raw_name, ".")[0]
     raw := strings.split(name, "_")
 
-    assert(len(raw) == 3, fmt.tprintf("Must have 3 coordinates in name. Got: %v, from file: %v", raw, filepath))
+    if len(raw) != 3{
+        return p, "", TiffError.BadFilename
+    }
 
     z_s, y_s, x_s := raw[0], raw[1], raw[2]
     p.x, _ = strconv.parse_int(x_s)
     p.y, _ = strconv.parse_int(y_s)
     p.z, _ = strconv.parse_int(z_s)
 
-    return p, raw_name
+    return p, raw_name, TiffError.None
 }
 
 tiff_replace_with_slice :: proc(t: ^TiffFile, s: Slice2D){

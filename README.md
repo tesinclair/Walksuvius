@@ -43,7 +43,8 @@ After the binary is built you can run:
 
 Which will output a breakdown of its findings along with a set of tagged cubes to `out/log/cubes_TAGGED` you can view with viewsuvius.
 
-If you use walksuvius without the `-log` flag, you get the actual cut cubes in `out/cubes_CUT` instead — same cubes, bridges removed, no colour tagging. Both paths are relative to wherever you're standing when you run it, not to the repo.
+Technically you can cut as-is, and output to out/cubes_CUT by omitting the `-log` flag, however this isn't recommended, as the current cuts are not behaving.
+
 
 To view the tagged cubes:
 

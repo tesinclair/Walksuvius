@@ -4,9 +4,7 @@ import "core:os"
 import "core:fmt"
 import "core:strings"
 
-CUBE_COUNT :: 64
-
-CubePackArr :: [CUBE_COUNT]string
+CubePackArr :: [dynamic]string
 
 CubePack :: map[string]^CubePackArr
 
@@ -15,7 +13,7 @@ CubePack :: map[string]^CubePackArr
 cube_walker_walk :: proc(tags: []string, dirs: []string) -> CubePack{
     cp := make(CubePack)
 
-    fi, err := os.read_directory_by_path(dirs[0], CUBE_COUNT, context.allocator)
+    fi, err := os.read_directory_by_path(dirs[0], -1, context.allocator)
     if err != nil{
         fmt.panicf("Failed to walk dir: %v. Err: %v", dirs[0], err)
     }
@@ -30,7 +28,14 @@ cube_walker_walk :: proc(tags: []string, dirs: []string) -> CubePack{
     for f, idx in fi{
         for tag, i in tags{
             dir := strings.trim_suffix(dirs[i], "/")
-            cp[tag][idx] = fmt.aprintf("%s/%s", dirs[i], f.name)
+            filepath := fmt.aprintf("%s/%s", dir, f.name)
+
+            if _, _, err := tiff_get_pos(filepath); err != .None{
+                delete(filepath)
+                continue
+            }
+
+            append(cp[tag], filepath)
         }
     }
 
@@ -39,6 +44,10 @@ cube_walker_walk :: proc(tags: []string, dirs: []string) -> CubePack{
 
 cube_walker_destroy :: proc(cp: ^CubePack){
     for _, arr in cp{
+        for s in arr{
+            delete(s)
+        }
+        delete(arr^)
         free(arr)
     }
     delete(cp^)
