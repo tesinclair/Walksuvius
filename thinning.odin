@@ -32,6 +32,9 @@ thin :: proc(s: ^raw_slice, data: ^raw_skel){
     // Guo Hall Thinning according to "Parallel Thinning with Two-Subiteration Algorithms: ZICHENG GUO and RICHARDW. HALL"
     // Taking off grid reads to be 0. All non 255 entries are taken as 0.
 
+    s := s
+    data := data
+
     N1 :: proc(nb: PixelNeighbours) -> (ret: Pixel){
         ret += nb[0] | nb[1]
         ret += nb[2] | nb[3]
@@ -104,7 +107,7 @@ thin :: proc(s: ^raw_slice, data: ^raw_skel){
 
         prev_del = curr_del
 
-        s^, data^ = data^, s^
+        s, data = data, s
     }
 }
 

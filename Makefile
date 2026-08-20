@@ -1,3 +1,5 @@
+all: build
+
 build-dev:
 	odin build -debug -out:bin/walksuvius .
 
@@ -15,6 +17,9 @@ view:
 
 debugger: build-dev
 	gdb --args bin/walksuvius walk ../GRID64/cubes_PRED -- -log
+
+build:
+	odin build -out:bin/walksuvius -show-timings -thread-count:25 .
 
 benchmark:
 	uv run scripts/gt_bench.py -n 64
