@@ -41,7 +41,7 @@ You will also need a directory of predicted cubes. See [Input format](#input-for
 ```
 git clone --depth=1 https://github.com/tesinclair/walksuvius
 cd walksuvius
-odin build -out:bin/walksuvius -o:speed -define:GIT_SHA=$$(git rev-parse HEAD || "") .
+odin build -out:bin/walksuvius -o:speed -define:GIT_SHA=$(git rev-parse HEAD || "") .
 ```
 
 There is a Makefile, but most of it is specific to my setup and you may not wish to use it -- though you may.
@@ -143,7 +143,7 @@ For anyone wishing to contribute. AI authored code is not allowed in this reposi
 
 # Experimental Features
 
-## Cutting (Experimental)
+## Cutting
 
 The cut doesn't need to be wide. It only needs to *disconnect* the voxels -- once the two wraps are no longer one connected component, marching cubes emits two separate surfaces on its own, and nothing downstream ever has to be told about it. The output is just corrected TIFFs, and they drop back into your existing pipeline with no changes.
 
