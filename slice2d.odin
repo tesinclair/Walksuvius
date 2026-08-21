@@ -62,16 +62,15 @@ slice2d_get_pixel_slice :: proc(
     s: Slice2D, 
     p: Vec2, 
     m := proc(p: Pixel) -> Pixel{return p}) -> Pixel{
-    offset := p.x + (p.y * SLICE_HEIGHT)
-    
-    if offset >= SLICE_SIZE || offset < 0 do return m(-1)
-    else do return m(Pixel(s.data[offset]))
+
+    return slice2d_get_pixel_raw(s.data^, p, m)
 }
 
 slice2d_get_pixel_raw :: proc(
     s: raw_slice,
     p: Vec2,
     m := proc(p: Pixel) -> Pixel{return p}) -> Pixel{
+    if p.x < 0 || p.y < 0 do return m(-1)
     offset := p.x + (p.y * SLICE_HEIGHT)
     
     if offset >= SLICE_SIZE || offset < 0 do return m(-1)

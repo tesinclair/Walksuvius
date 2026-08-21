@@ -23,9 +23,9 @@ ViewData :: struct{
     tags: []string,
 }
 
-WALK_OPTS :: [?]string{"-log", "-verbose"}
+WALK_OPTS :: [?]string{"-cut", "-verbose"}
 WalkFlags :: enum{
-    Log,
+    Cut,
     Verbose,
 }
 
@@ -95,6 +95,9 @@ main :: proc(){
 }
 
 main_walk :: proc(flags: bit_set[WalkFlags], tags, dirs: []string){
+    if .Cut in flags{
+        fmt.printf("Warning: -cut is an experimental feature and unlikely to give desired results.")
+    }
     cp := cube_walker_walk(tags, dirs)
     defer cube_walker_destroy(&cp)
 
@@ -144,8 +147,9 @@ main_walk :: proc(flags: bit_set[WalkFlags], tags, dirs: []string){
                 }
             }
 
-            if .Log in flags do slice2d_colour(&s, b, skel_slice)
-            else do slice2d_delete(&s, b)
+            if .Cut in flags do slice2d_delete(&s, b)
+            else do slice2d_colour(&s, b, skel_slice)
+
             tiff_replace_with_slice(&t, s)
 
             if .Verbose in flags do fmt.printfln("Got blobs: %v", b.blobs)
@@ -153,12 +157,12 @@ main_walk :: proc(flags: bit_set[WalkFlags], tags, dirs: []string){
             tracker_add(&tracker, s, b, t.filename_no_suffix)
         }
 
-        if .Log in flags{
-            fmt.printfln("Writing cube %v to %v/%v", cube_idx + 1, "out/log/cubes_TAGGED", t.filename)
-            tiff_write(t, "out/log/cubes_TAGGED/")
-        }else{
+        if .Cut in flags{
             fmt.printfln("Writing cut cube %v to %v/%v", cube_idx + 1, "out/cubes_CUT", t.filename)
             tiff_write(t, "out/cubes_CUT/")
+        }else{
+            fmt.printfln("Writing cube %v to %v/%v", cube_idx + 1, "out/cubes_TAGGED", t.filename)
+            tiff_write(t, "out/cubes_TAGGED/")
         }
 
         tracker_add(&tracker, t)
@@ -237,17 +241,17 @@ print_usage :: proc(){
     fmt.printf(`
 Usage: %v [ Command ] -- [ Options ]
     Commands:
-        walk <directory>                 Walks through the cubes and cuts out any bridges
+        walk <directory>                 Walks through predicted cubes and reports on suspected fused wraps
         view LIST[<tag>:<directory>]     Runs Viewsuvius on the cubes in the directory lists
 
     Options:
         walk:
-            -log                        outputs tagged cubes to out/log/cubes_TAGGED/, according to the colour scheme in tagging.md
-            -verbose                    prints verbose output
+            -cut                        EXPERIMENTAL: cuts cubes at suspected join points and outputs to out/cubes_CUT
+            -verbose                    prints verbose output (Mostly for debugging at the moment)
 
 
     Example:
-        %v view PRED:../GRID/cubes_PRED TAGGED:out/log/cubes_TAGGED
-`, os.args[0])
+        %v view PRED:../GRID/cubes_PRED TAGGED:out/cubes_TAGGED
+`, os.args[0], os.args[0])
     os.exit(1)
 }
