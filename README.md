@@ -55,6 +55,27 @@ for colour coding to be enabled for the tagged cube output, the TAGGED: label mu
 
 Arrow keys move you around: up and down step through the 128 slices of the current cube, left and right step between cubes. Space cycles through whichever tags you passed in. The colour scheme for tagged output is in [tagging.md](tagging.md).
 
+## Output
+
+Right now Walksuvius outputs 4 things:
+
+**out/data/**:
+
+1. cubes_<run_id>.csv: a breakdown of all the findings for each cube
+2. suspects_<run_id>.csv: a breakdown of all the findings for each suspected blob
+3. run.json: a high level overview of the output
+
+These files are also condensed and outputted to the console.
+
+
+When the `-log` flag is active:
+
+- out/log/cubes_TAGGED: the colour coded tagged cubes for viewing with viewsuvius
+
+When it isn't:
+
+- out/cut/cubes_CUT: the cut cubes: avoid this right now as they are not behaving.
+
 ### Options
 
 Options go after the `--`, and only apply to `walk`:
