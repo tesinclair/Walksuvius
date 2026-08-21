@@ -15,10 +15,12 @@ TiffData :: [FILE_SIZE]byte
 TiffFile :: struct{
     ok: bool,
     data: ^TiffData,
-    position: Vec3,
+    using position: Vec3,
     filename: string,
+    filename_no_suffix: string,
     header_data: []byte,
     footer_data: []byte,
+    input_dir: string,
 }
 
 TiffError :: enum{
@@ -30,10 +32,12 @@ tiff_read :: proc(filepath: string) -> TiffFile{
     t := TiffFile{}
     name_err: TiffError
 
-    t.position, t.filename, name_err = tiff_get_pos(filepath)
+    t.position, t.filename, t.filename_no_suffix, name_err = tiff_get_pos(filepath)
     if name_err == .BadFilename{
         return t
     }
+
+    t.input_dir = strings.trim_suffix(filepath, t.filename)
 
     f, err := os.open(filepath)
     if err != nil{
@@ -73,7 +77,7 @@ tiff_destroy :: proc(t: ^TiffFile){
 }
 
 // Takes a Tiff Cube File Path and returns its coordinates and the filename
-tiff_get_pos :: proc(filepath: string) -> (Vec3, string, TiffError){
+tiff_get_pos :: proc(filepath: string) -> (Vec3, string, string, TiffError){
     p := Vec3{}
 
     split_fp := strings.split(filepath, "/")
@@ -82,7 +86,7 @@ tiff_get_pos :: proc(filepath: string) -> (Vec3, string, TiffError){
     raw := strings.split(name, "_")
 
     if len(raw) != 3{
-        return p, "", TiffError.BadFilename
+        return p, "", "", TiffError.BadFilename
     }
 
     z_s, y_s, x_s := raw[0], raw[1], raw[2]
@@ -90,7 +94,7 @@ tiff_get_pos :: proc(filepath: string) -> (Vec3, string, TiffError){
     p.y, _ = strconv.parse_int(y_s)
     p.z, _ = strconv.parse_int(z_s)
 
-    return p, raw_name, TiffError.None
+    return p, raw_name, name, TiffError.None
 }
 
 tiff_replace_with_slice :: proc(t: ^TiffFile, s: Slice2D){

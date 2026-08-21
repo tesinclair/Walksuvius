@@ -32,7 +32,7 @@ Once you have Odin and make installed you can run these commands:
 ```
 git clone --depth=1 https://github.com/tesinclair/walksuvius
 cd walksuvius
-odin build -out:bin/walksuvius -o:speed .
+odin build -out:bin/walksuvius -o:speed -define:GIT_SHA=$(git rev-parse HEAD) .
 ```
 
 While there is a Makefile most of these are specific to my setup and you may not wish to use it--though you may.

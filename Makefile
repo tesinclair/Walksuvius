@@ -1,7 +1,7 @@
 all: build
 
 build-dev:
-	odin build -debug -out:bin/walksuvius .
+	odin build -debug -out:bin/walksuvius -define:GIT_SHA=$$(git rev-parse HEAD || "") .
 
 walk: build-dev
 	bin/walksuvius walk ../GRID64/cubes_PRED
@@ -19,7 +19,7 @@ debugger: build-dev
 	gdb --args bin/walksuvius walk ../GRID64/cubes_PRED -- -log
 
 build:
-	odin build -out:bin/walksuvius -show-timings -thread-count:25 .
+	odin build -out:bin/walksuvius -show-timings -thread-count:25 -define:GIT_SHA=$$(git rev-parse HEAD) .
 
 benchmark:
 	uv run scripts/gt_bench.py -n 64

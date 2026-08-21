@@ -140,9 +140,7 @@ slice2d_colour :: proc(s: ^Slice2D, b: BlobPack, skel: Slice2D){
 slice2d_delete :: proc(s: ^Slice2D, b: BlobPack){
     for blob in b.blobs{
         for d in blob.deleted{
-            for p in d{
-                slice2d_set_pixel(s, p, 0)
-            }
+            for p in d do slice2d_set_pixel(s, p, 0)
         }
     }
 }

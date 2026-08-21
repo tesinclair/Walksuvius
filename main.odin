@@ -4,6 +4,10 @@ import "core:fmt"
 import "core:os"
 import "core:strings"
 import rl "vendor:raylib"
+import "core:time"
+
+OUT_DIR :: "out/data"
+STARTED: time.Time
 
 Vec2 :: [2]int
 Vec3 :: struct{x,y,z: int}
@@ -30,6 +34,7 @@ Error :: union #shared_nil{
 }
 
 main :: proc(){
+    STARTED = time.now()
     if len(os.args) < 3 do print_usage()
 
     opt_idx := len(os.args) + 1
@@ -69,15 +74,16 @@ main :: proc(){
 
         flags: bit_set[WalkFlags]
 
-        if opt_idx < len(os.args){}
-        for flag in os.args[opt_idx:]{
-            prev := flags
-            for opt, idx in WALK_OPTS{
-                if opt == flag do flags += { WalkFlags(idx) }
-            }
-            if prev == flags{ 
-                fmt.printfln("Unknown option: %v.", flag)
-                print_usage()
+        if opt_idx < len(os.args){
+            for flag in os.args[opt_idx:]{
+                prev := flags
+                for opt, idx in WALK_OPTS{
+                    if opt == flag do flags += { WalkFlags(idx) }
+                }
+                if prev == flags{ 
+                    fmt.printfln("Unknown option: %v.", flag)
+                    print_usage()
+                }
             }
         }
 
@@ -92,12 +98,18 @@ main_walk :: proc(flags: bit_set[WalkFlags], tags, dirs: []string){
     cp := cube_walker_walk(tags, dirs)
     defer cube_walker_destroy(&cp)
 
+    tracker := tracker_create(output_dir = OUT_DIR)
+    defer tracker_destroy(&tracker)
+
+    input_dir: string
+
     for cube, cube_idx in cp["PRED"]{
         if .Verbose in flags do fmt.printfln("Walking Cube: %v", cube_idx + 1)
         t := tiff_read(cube)
         if !t.ok do continue
-
         defer tiff_destroy(&t)
+
+        input_dir = t.input_dir
 
         for depth in 0..<128{
             if .Verbose in flags do fmt.printfln("Blobbing Cube: %v, Slice: %v", cube_idx + 1, depth)
@@ -137,16 +149,24 @@ main_walk :: proc(flags: bit_set[WalkFlags], tags, dirs: []string){
             tiff_replace_with_slice(&t, s)
 
             if .Verbose in flags do fmt.printfln("Got blobs: %v", b.blobs)
+
+            tracker_add(&tracker, s, b, t.filename_no_suffix)
         }
 
         if .Log in flags{
-            fmt.printfln("Writing cube %v to %v%v", cube_idx + 1, "out/log/cubes_TAGGED/", t.filename)
+            fmt.printfln("Writing cube %v to %v/%v", cube_idx + 1, "out/log/cubes_TAGGED", t.filename)
             tiff_write(t, "out/log/cubes_TAGGED/")
         }else{
-            fmt.printfln("Writing cut cube %v to %v%v", cube_idx + 1, "out/cubes_CUT", t.filename)
+            fmt.printfln("Writing cut cube %v to %v/%v", cube_idx + 1, "out/cubes_CUT", t.filename)
             tiff_write(t, "out/cubes_CUT/")
         }
+
+        tracker_add(&tracker, t)
     }
+
+    tracker_add(&tracker, STARTED, input_dir, "Unknown", len(cp["PRED"]))
+    tracker_print(tracker)
+    tracker_write(tracker)
 }
 
 main_view :: proc(tags: []string, dirs: []string){

@@ -30,7 +30,7 @@ cube_walker_walk :: proc(tags: []string, dirs: []string) -> CubePack{
             dir := strings.trim_suffix(dirs[i], "/")
             filepath := fmt.aprintf("%s/%s", dir, f.name)
 
-            if _, _, err := tiff_get_pos(filepath); err != .None{
+            if _, _, _, err := tiff_get_pos(filepath); err != .None{
                 delete(filepath)
                 continue
             }
