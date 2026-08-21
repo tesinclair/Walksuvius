@@ -6,6 +6,8 @@ Where two wraps sit close together, the prediction sometimes joins them into a s
 
 It can also cut them. That part is experimental and I'd not trust it yet -- see [Cutting](#cutting) below.
 
+*Note:* Viewsuvius is a CLI tool for viewing cubes by slice, currently bolted onto walksuvius via the `view` command but soon to be its own binary.
+
 ## How it finds them
 
 Take a clean cross-section of a scroll. Each wrap crosses that slice as its own separate arc, so if you skeletonise the prediction you should get a forest -- a set of curves with no loops in them.
@@ -14,27 +16,15 @@ A loop means two arcs have been joined at two points. That is a merge. So the de
 
 That's the whole idea. It's cheap, it needs no model and no training data, and it runs on predictions you already have.
 
-## Cutting
-
-The cut doesn't need to be wide. It only needs to *disconnect* the voxels -- once the two wraps are no longer one connected component, marching cubes emits two separate surfaces on its own, and nothing downstream ever has to be told about it. The output is just corrected TIFFs, and they drop back into your existing pipeline with no changes.
-
-That's the goal. What's implemented right now is a rough heuristic that raycasts out from the branch point in eight directions and cuts along whichever span is shortest, and it picks the wrong line often enough that I'd not run it on anything you care about. It's behind a flag for that reason.
-
-Phase 2 is to replace it with a proper minimum cut. "Remove the fewest voxels needed to separate the layers" is the definition of a min cut, so it should be solved as one -- max-flow on the voxel graph in a small box around the junction, seeded on either sheet. That's better formed than what's there now: it works in 3D rather than slice by slice, it's provably minimal, and it can follow an oblique bridge instead of being stuck on the eight raycast directions.
-
-It doesn't, on its own, fix the deeper problem. Inside a fused blob every voxel is a 1, so there's nothing in the mask that says one line through the bridge is better than another. Unweighted, a min cut is still just a shorter shortest line. The signal that would actually settle it is how confident the model was -- a spurious merge is usually a low-probability ridge between two high-probability sheets, and thresholding flattens that to a uniform 1 before walksuvius ever sees it. So the plan is to take a second, unthresholded cube as an optional input and weight the cut by it, falling back to geometry when one isn't supplied. `carve_grid_tifs` already writes `cubes_RAW/` on the same grid with the same filenames, so the attenuation is there to try even before anyone re-runs inference. Binary is the right input for finding the merges; it just isn't enough for choosing where to cut them.
-
-## Viewsuvius
-
-A CLI tool for viewing cubes by slice, currently bolted onto walksuvius via the `view` command but soon to be its own binary.
 
 ## Roadmap
 
-- [x] Phase 1: find and catalogue the merges
-- [ ] Replace the border filter with a connectivity test (see limitations)
-- [ ] Benchmark against ground truth
-- [ ] Phase 2: cut by min-cut, weighted by an optional probability cube
-- [ ] Read Zarr
+- [x] Phase 1: Set up basic architecture, find suspected merges, and document
+
+- [ ] Phase 2: Perfect merge detection, and improve documentation method
+    - [ ] Replace the border filter with a connectivity test
+
+- [ ] Phase 3: Fully integrate with existing pipeline
 
 # Usage
 
@@ -122,31 +112,23 @@ Those constants aren't arbitrary, and they're narrower than I'd like. `carve_gri
 
 ## Known limitations
 
-I'd rather tell you where this is weak than let you find out yourself.
+There are quite a few limitations in its current state:
 
-- **Nothing is benchmarked yet.** I have no numbers on how many real merges it catches or how many it invents. Everything here was developed on one 4x4x4 block of PHerc. 139 that doesn't overlap the public labelled cubes, so a real benchmark needs predictions carved at the ground truth coordinates first -- the bbox is recorded in the manifest, so checking that overlap is a lookup rather than a guess. Synthetic merges injected into clean regions would at least give a recall figure in the meantime.
+The format is \[Issue\]. \<summary\> (Phase)
 
-- **The "touches two or more borders" discard filter is unsound.** It's a proxy for "is this loop enclosed", and the cube border isn't a real feature -- it's just where I happened to crop. A merge sitting near an edge gets thrown out. The proper test is whether the two skeleton arcs either side of a gap belong to the same connected component: if they do it's a merge, however many borders it touches. That's a union-find and it's cheaper than what's there now.
+- **The "touches two or more borders" discard filter is unsound.** It's a proxy for "is this loop enclosed". A merge sitting near an edge gets thrown out. The proper test is whether the two skeleton arcs either side of a gap belong to the same connected component: if they do it's a merge, however many borders it touches. (Phase 2)
 
-- **Cutting slice by slice doesn't guarantee a 3D separation.** Marching cubes works in 3D. If the cut line in one slice sits a pixel off the cut in the next, the two sheets stay diagonally connected and the merge survives meshing even though the output looks cut. Nothing currently enforces continuity of the cut in z. This is the main reason cutting is behind a flag.
+- **Cutting slice by slice doesn't guarantee a 3D separation.** Marching cubes works in 3D. If the cut line in one slice sits a pixel off the cut in the next, the two sheets stay diagonally connected and the merge survives meshing even though the output looks cut. Nothing currently enforces continuity of the cut in z. This is the main reason cutting is behind a flag. (Phase 2)
 
-- **The slicing axis is arbitrary.** Slices are taken along the cube's local z, which has no particular relationship to the scroll's axis. Wraps only read as clean concentric arcs when you slice roughly perpendicular to the roll; off-axis, one wrap can appear as several arcs and the loop count stops meaning what I want it to mean. The umbilicus is sitting in the manifest and would give the radial direction at any voxel -- a real merge bridges two sheets adjacent in radius, so the bridge ought to run roughly radially, and a fold generally won't. Not used yet.
+- **The slicing axis is arbitrary.** Slices are taken along the cube's local z, which has no particular relationship to the scroll's axis. Wraps only read as clean concentric arcs when you slice roughly perpendicular to the roll; off-axis, one wrap can appear as several arcs and the loop count stops meaning what I want it to mean. The umbilicus is sitting in the manifest and would give the radial direction at any voxel -- a real merge bridges two sheets adjacent in radius, so the bridge ought to run roughly radially, and a fold generally won't. Not used yet. (Phase 2)
 
-- **Junction detection over-reports.** Walking a junction continues down all three branches, so junctions get flagged on paths that weren't suspected. Requiring a target's neighbour to be tagged suspect helped but didn't fix it. Requiring the junction to actually close a cycle should fix the rest.
+- **Junction detection over-reports.** Walking a junction continues down all three branches, so junctions get flagged on paths that weren't suspected. Requiring a target's neighbour to be tagged suspect helped but didn't fix it. Requiring the junction to actually close a cycle should fix the rest. (Phase 2)
 
-- **Neighbour lookups wrap around the slice.** The pixel lookup indexes with `x + y*128` and only bounds-checks the offset, not x -- so the left neighbour of a column-0 pixel is a valid index pointing at the end of the row above. This is the stray cut pixel, and it quietly corrupts blob membership and junction detection near the vertical borders too. Known, being fixed.
+- **The manifest is ignored.** The umbilicus is generally available but walksuvius doesn't read it yet (hence why scroll name is still Unknown) (Phase 2)
 
-- **Filename parsing fails silently.** The world position comes from the filename, and a piece that doesn't parse as an integer becomes 0 rather than an error -- so a prefixed name like `z04352_y03328_x02816.tif` splits into three parts, passes the format check, and lands every cube at the origin. The parser should accept the prefixed form and shout when it can't read a coordinate at all.
+- **TIFF only.** No Zarr yet. In fact cubes should only be in the format given (Phase 3)
 
-- **The manifest is ignored.** `carve_grid_tifs` writes the scroll, bbox and umbilicus next to the cubes and walksuvius reads none of it, which is why `run.json` says the scroll is Unknown.
-
-- **The catalogue records the slice position, not the position of the find.** So it tells you which slice a merge is in but not where in it, which makes it harder to go and look at than it should be. Centroid and bounding box are coming.
-
-- **TIFF only.** No Zarr, which is what everything else in the pipeline actually streams.
-
-- **It won't scale to a full grid yet.** There are per-slice leaks, and the per-cube summary rescans the whole accumulated suspect list, so it goes quadratic. Fine on 64 cubes, not fine on a scroll.
-
-- **`walk` only reads cubes under the `PRED` tag.** Tag your input directory as anything else and it won't find them.
+- **Not scalable.** Right now there is a lot of rescanning, no multithreading, and no gpu acceleration, so it is quite slow per cube. (Phase 3)
 
 ## Licence
 
@@ -158,3 +140,16 @@ For anyone wishing to contribute. AI authored code is not allowed in this reposi
 
 1. All documentation may be written with AI.
 2. Scripts may be written with AI, but should never exist outside of the `scripts/` directory.
+
+# Experimental Features
+
+## Cutting (Experimental)
+
+The cut doesn't need to be wide. It only needs to *disconnect* the voxels -- once the two wraps are no longer one connected component, marching cubes emits two separate surfaces on its own, and nothing downstream ever has to be told about it. The output is just corrected TIFFs, and they drop back into your existing pipeline with no changes.
+
+That's the goal. What's implemented right now is a rough heuristic that raycasts out from the branch point in eight directions and cuts along whichever span is shortest, and it picks the wrong line often enough that I'd not run it on anything you care about. It's behind a flag for that reason.
+
+Phase 2 is to replace it with a proper minimum cut. "Remove the fewest voxels needed to separate the layers" is the definition of a min cut, so it should be solved as one -- max-flow on the voxel graph in a small box around the junction, seeded on either sheet. That's better formed than what's there now: it works in 3D rather than slice by slice, it's provably minimal, and it can follow an oblique bridge instead of being stuck on the eight raycast directions.
+
+It doesn't, on its own, fix the deeper problem. Inside a fused blob every voxel is a 1, so there's nothing in the mask that says one line through the bridge is better than another. Unweighted, a min cut is still just a shorter shortest line. The signal that would actually settle it is how confident the model was -- a spurious merge is usually a low-probability ridge between two high-probability sheets, and thresholding flattens that to a uniform 1 before walksuvius ever sees it. So the plan is to take a second, unthresholded cube as an optional input and weight the cut by it, falling back to geometry when one isn't supplied. `carve_grid_tifs` already writes `cubes_RAW/` on the same grid with the same filenames, so the attenuation is there to try even before anyone re-runs inference. Binary is the right input for finding the merges; it just isn't enough for choosing where to cut them.
+
