@@ -84,7 +84,7 @@ Options go after the `--`, and only apply to `walk`:
 The input format is unforgiving, since TIFF parsing is done by hand. Walksuvius expects:
 
 - **128x128x128 cubes, one byte per voxel.** Binary on/off surface predictions, not raw u16 scan data.
-- **Filenames of three underscore-separated integers**, `z_y_x.tif`, which is where the cube gets its world position from.
+- **Filenames of three underscore-separated integers**, `z00000_y00000_x00000.tif`, which is where the cube gets its world position from.
 - **The cube directory itself**, not a parent directory of cube directories.
 
 ### Where the cubes come from
@@ -102,9 +102,9 @@ uv run --project python python/scripts/carve_grid_tifs.py \
 
 That's PHerc. 139, a 4x4x4 block of cubes, which is what everything here has been developed against. It writes `cubes_PRED/`, `cubes_RAW/`, and a `manifest.json` recording the bbox, the umbilicus and both source URLs. Run it from inside the scrollfiesta checkout -- `--project python` matters, since it imports from `python/src`.
 
-Two things to know if you use it. It names cubes `z#####_y#####_x#####.tif`, and walksuvius wants three bare integers, so strip the prefixes until I fix the parser. And it thresholds PRED on the way through, on top of a source store that was already thresholded at 0.2 -- so what reaches walksuvius is binary twice over. That's fine for finding merges and not fine for cutting them, which is what the [Cutting](#cutting) section is about.
-
 ### On the TIFF reader
+
+The TIFF reader is very very minimal right now.
 
 It doesn't parse IFDs. It assumes a fixed 256-byte header, then the voxel data, then a fixed-size footer, and copies the header and footer through untouched so the output stays byte-compatible with the input.
 
